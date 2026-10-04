@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: payment_processing_db
+    environment:
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_secure_password
+      POSTGRES_DB: payment_processing
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U payment_user -d payment_processing" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4.3-management-alpine
+    container_name: payment_processing_broker
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD-SHELL", "rabbitmq-diagnostics -q check_running" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: server.Dockerfile
+    container_name: payment_processing_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - RABBIT_HOST=rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  consumer:
+    build:
+      context: .
+      dockerfile: consumer.Dockerfile
+    container_name: payment_processing_consumer
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - RABBIT_HOST=rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
