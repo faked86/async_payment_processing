@@ -1,11 +1,11 @@
 import uuid
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.common.dtos import PaymentCreateDTO, PaymentGetDTO
 from src.common.types import Status
+from src.core.exceptions import PaymentNotFoundError
 from src.db.models.payments import Payment
 from src.db.models.outbox import Outbox
 
@@ -51,8 +51,6 @@ class PaymentService:
         res = await db.execute(payment_query)
         payment_from_db = res.scalar_one_or_none()
         if payment_from_db is None:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, detail="No such payment exist."
-            )
+            raise PaymentNotFoundError("No such payment exist.")
 
         return payment_from_db

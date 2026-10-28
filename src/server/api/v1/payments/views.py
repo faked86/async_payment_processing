@@ -1,10 +1,11 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.common.dtos import PaymentCreateDTO, PaymentGetDTO
+from src.core.exceptions import PaymentNotFoundError
 from src.core.payments import PaymentService
 from src.db.session import get_session
 from src.server.api.v1.payments.schemas import (
@@ -49,4 +50,9 @@ async def payment_get_view(
     db: AsyncSession = Depends(get_session),
 ):
     dto = PaymentGetDTO(payment_id)
-    return await PaymentService.get_payment(db, dto)
+    try:
+        return await PaymentService.get_payment(db, dto)
+    except PaymentNotFoundError:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="No such payment exist."
+        )
